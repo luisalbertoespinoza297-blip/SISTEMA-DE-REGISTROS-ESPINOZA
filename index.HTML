@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SISTEMA DE REGISTRO ESTUDIANTE</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+    :root {
+        --primary: #003087;     /* Azul institucional profundo */
+        --secondary: #00a651;   /* Verde éxito */
+        --accent: #ffc107;      /* Amarillo acento */
+        --dark: #1e2a44;
+        --light: #f8f9fa;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        background: linear-gradient(135deg, #e6f0fa 0%, #d0e0f5 100%);
+        color: #333;
+    }
+    header {
+        background: linear-gradient(135deg, var(--primary), #002266);
+        color: white;
+        padding: 1.8rem;
+        text-align: center;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.25);
+    }
+    .container { max-width: 1480px; margin: 20px auto; padding: 0 15px; }
+    .card {
+        background: white;
+        border-radius: 16px;
+        padding: 22px;
+        margin-bottom: 22px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 18px;
+    }
+    .stat-box {
+        background: linear-gradient(135deg, var(--primary), #002266);
+        color: white;
+        padding: 22px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    input, select, button {
+        padding: 13px;
+        margin: 6px 0;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        font-size: 1rem;
+    }
+    button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    button:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,48,135,0.3); }
+    .btn-success { background: var(--secondary); }
+    .btn-danger { background: #dc3545; }
+    .btn-warning { background: var(--accent); color: #333; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 14px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: var(--primary); color: white; cursor: pointer; }
+
+    .foto-preview {
+        width: 130px;
+        height: 155px;
+        object-fit: cover;
+        border: 4px solid var(--primary);
+        border-radius: 12px;
+    }
+    .carnet {
+        width: 360px;
+        height: 500px;
+        border: 10px solid var(--primary);
+        border-radius: 18px;
+        background: linear-gradient(#fff, #f8f9fa);
+        margin: 20px auto;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+    }
+    .carnet-header {
+        background: var(--dark);
+        color: white;
+        text-align: center;
+        padding: 18px 10px;
+        font-size: 1.25rem;
+        font-weight: bold;
+    }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 1000; }
+    .toast { position: fixed; bottom: 25px; right: 25px; padding: 16px 28px; background: #1e2a44; color: white; border-radius: 10px; display: none; z-index: 2000; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+</style>
+</head>
+<body>
+
+<header>
+    <h1><i class="fas fa-school"></i> SISTEMA DE REGISTRO ESPINOZA</h1>
+    <p>Registro • Carnets Digitales • Control QR</p>
+</header>
+
+<div class="container">
+
+    <!-- Dashboard -->
+    <div class="card">
+        <h3><i class="fas fa-chart-bar"></i> Dashboard</h3>
+        <div class="stats" id="stats"></div>
+    </div>
+
+    <!-- Registro y Escáner QR -->
+    <div class="card">
+        <h3><i class="fas fa-user-plus"></i> Registrar Estudiante</h3>
+        
+        <div style="display:flex; gap:15px; flex-wrap:wrap; margin-bottom:15px;">
+            <button onclick="document.getElementById('fotoInput').click()">
+                <i class="fas fa-camera"></i> Subir Foto
+            </button>
+            <button onclick="iniciarRegistroQR()" class="btn-success">
+                <i class="fas fa-qrcode"></i> Registrar por QR
+            </button>
+        </div>
+
+        <input type="file" id="fotoInput" accept="image/*" style="display:none">
+        <img id="fotoPreview" class="foto-preview" src="" alt="Vista previa" style="display:none; margin-bottom:12px;">
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px;">
+            <input id="nombres" placeholder="Nombres completos *" required>
+            <input id="dni" placeholder="DNI (8 dígitos)" maxlength="8" required>
+            <input id="email" type="email" placeholder="Correo electrónico">
+            <select id="grado">
+                <option value="">Seleccionar Grado / Curso</option>
+                <option>1° Primaria</option><option>2° Primaria</option><option>3° Primaria</option>
+                <option>4° Primaria</option><option>5° Primaria</option><option>6° Primaria</option>
+                <option>1° Secundaria</option><option>2° Secundaria</option><option>3° Secundaria</option>
+                <option>4° Secundaria</option><option>5° Secundaria</option>
+            </select>
+        </div>
+        <button onclick="guardarEstudiante()" style="margin-top:12px; padding:14px 30px;">
+            <i class="fas fa-save"></i> Guardar Estudiante
+        </button>
+    </div>
+
+    <!-- Búsqueda -->
+    <div class="card">
+        <input type="text" id="searchInput" placeholder="🔍 Buscar por nombre o DNI..." style="width:100%; padding:15px; font-size:1.1rem;">
+    </div>
+
+    <!-- Tabla -->
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3>Estudiantes Registrados (<span id="total">0</span>)</h3>
+            <div>
+                <button onclick="exportarExcel()" class="btn-success"><i class="fas fa-file-excel"></i> Excel</button>
+                <button onclick="document.getElementById('importExcel').click()">Importar Excel</button>
+                <input type="file" id="importExcel" accept=".xlsx,.xls" style="display:none">
+            </div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Foto</th><th>Nombres</th><th>DNI</th><th>Grado</th><th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tablaBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Carnet -->
+<div class="modal" id="modalCarnet">
+    <div style="background:white; padding:25px; border-radius:16px; max-width:390px; width:95%;">
+        <div id="carnetContent"></div>
+        <div style="text-align:center; margin-top:20px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+            <button onclick="imprimirCarnet()" class="btn-success"><i class="fas fa-print"></i> Imprimir</button>
+            <button onclick="descargarPDF()" class="btn-warning"><i class="fas fa-download"></i> PDF</button>
+            <button onclick="cerrarModal()" class="btn-danger">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ====================== VARIABLES ======================
+let estudiantes = JSON.parse(localStorage.getItem("estudiantes")) || [];
+let editingIndex = -1;
+let currentFotoBase64 = null;
+let scanner = null;
+
+// ====================== UTILIDADES ======================
+function showToast(msg, type = "success") {
+    const toast = document.getElementById("toast");
+    toast.textContent = msg;
+    toast.style.background = type === "success" ? "#00a651" : "#dc3545";
+    toast.style.display = "block";
+    setTimeout(() => toast.style.display = "none", 3000);
+}
+
+function actualizarDashboard() {
+    const total = estudiantes.length;
+    const porGrado = {};
+    estudiantes.forEach(e => porGrado[e.grado] = (porGrado[e.grado] || 0) + 1);
+
+    let html = `<div class="stat-box"><h2>${total}</h2><p>Total Alumnos</p></div>`;
+    Object.keys(porGrado).forEach(g => {
+        html += `<div class="stat-box"><h2>${porGrado[g]}</h2><p>${g}</p></div>`;
+    });
+    document.getElementById("stats").innerHTML = html;
+    document.getElementById("total").textContent = total;
+}
+
+// ====================== FOTO ======================
+document.getElementById("fotoInput").addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        currentFotoBase64 = ev.target.result;
+        document.getElementById("fotoPreview").src = currentFotoBase64;
+        document.getElementById("fotoPreview").style.display = "block";
+    };
+    reader.readAsDataURL(file);
+});
+
+// ====================== REGISTRO POR QR ======================
+function iniciarRegistroQR() {
+    if (scanner) return;
+    
+    const div = document.createElement("div");
+    div.innerHTML = `
+        <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:2000;display:flex;align-items:center;justify-content:center;">
+            <div style="background:white;padding:20px;border-radius:12px;width:90%;max-width:420px;">
+                <h3 style="text-align:center;">Escanear QR para Registrar</h3>
+                <div id="readerQR" style="width:100%;max-width:380px;margin:15px auto;border:3px solid #003087;border-radius:12px;"></div>
+                <button onclick="detenerScannerRegistro()" style="width:100%;padding:12px;background:#dc3545;">Cancelar</button>
+            </div>
+        </div>`;
+    document.body.appendChild(div);
+
+    scanner = new Html5Qrcode("readerQR");
+    scanner.start(
+        { facingMode: "environment" },
+        { fps: 15, qrbox: { width: 280, height: 280 } },
+        (decodedText) => {
+            try {
+                const datos = JSON.parse(decodedText);
+                document.getElementById("nombres").value = datos.nombres || "";
+                document.getElementById("dni").value = datos.dni || "";
+                document.getElementById("email").value = datos.email || "";
+                document.getElementById("grado").value = datos.grado || "";
+                
+                detenerScannerRegistro();
+                showToast("Datos cargados desde QR correctamente");
+            } catch(e) {
+                showToast("QR inválido", "error");
+            }
+        },
+        () => {}
+    );
+}
+
+function detenerScannerRegistro() {
+    if (scanner) {
+        scanner.stop().then(() => {
+            scanner = null;
+            document.querySelectorAll('div[style*="position:fixed"]').forEach(el => el.remove());
+        });
+    }
+}
+
+// ====================== CRUD ======================
+function guardarEstudiante() {
+    const nombres = document.getElementById("nombres").value.trim();
+    const dni = document.getElementById("dni").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const grado = document.getElementById("grado").value;
+
+    if (!nombres || !dni || !grado) return showToast("Todos los campos obligatorios", "error");
+    if (dni.length !== 8 || isNaN(dni)) return showToast("DNI debe tener 8 dígitos", "error");
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showToast("Email inválido", "error");
+
+    const estudiante = {
+        nombres, dni, email, grado,
+        foto: currentFotoBase64 || "https://via.placeholder.com/130x155?text=Sin+Foto"
+    };
+
+    if (editingIndex >= 0) {
+        estudiantes[editingIndex] = estudiante;
+        editingIndex = -1;
+    } else {
+        estudiantes.push(estudiante);
+    }
+
+    localStorage.setItem("estudiantes", JSON.stringify(estudiantes));
+    actualizarTabla();
+    actualizarDashboard();
+    limpiarFormulario();
+    showToast("¡Estudiante registrado exitosamente!");
+}
+
+function editarEstudiante(index) {
+    const e = estudiantes[index];
+    editingIndex = index;
+    document.getElementById("nombres").value = e.nombres;
+    document.getElementById("dni").value = e.dni;
+    document.getElementById("email").value = e.email || "";
+    document.getElementById("grado").value = e.grado;
+    document.getElementById("fotoPreview").src = e.foto;
+    document.getElementById("fotoPreview").style.display = "block";
+    currentFotoBase64 = e.foto;
+}
+
+function eliminarEstudiante(index) {
+    if (confirm("¿Eliminar este estudiante?")) {
+        estudiantes.splice(index, 1);
+        localStorage.setItem("estudiantes", JSON.stringify(estudiantes));
+        actualizarTabla();
+        actualizarDashboard();
+    }
+}
+
+// ====================== TABLA Y CARNET ======================
+function actualizarTabla(filtered = null) {
+    const tbody = document.getElementById("tablaBody");
+    tbody.innerHTML = "";
+    const data = filtered || estudiantes;
+
+    data.forEach((e, i) => {
+        const idx = estudiantes.indexOf(e);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td><img src="${e.foto}" class="foto-preview" style="width:55px;height:65px"></td>
+            <td>${e.nombres}</td>
+            <td>${e.dni}</td>
+            <td>${e.grado}</td>
+            <td>
+                <button onclick="mostrarCarnet(${idx})" title="Ver Carnet"><i class="fas fa-id-card"></i></button>
+                <button onclick="editarEstudiante(${idx})" title="Editar"><i class="fas fa-edit"></i></button>
+                <button onclick="eliminarEstudiante(${idx})" class="btn-danger" title="Eliminar"><i class="fas fa-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+let currentIndex = -1;
+
+function mostrarCarnet(index) {
+    currentIndex = index;
+    const e = estudiantes[index];
+    const carnetHTML = `
+        <div class="carnet" id="carnetPrint">
+            <div class="carnet-header">CARNET ESTUDIANTIL</div>
+            <div style="text-align:center; padding:18px 15px;">
+                <img src="${e.foto}" style="width:135px;height:165px;border:4px solid #003087;border-radius:12px;object-fit:cover;">
+            </div>
+            <div style="padding:0 25px; text-align:center; line-height:1.7;">
+                <h3>${e.nombres}</h3>
+                <p><strong>DNI:</strong> ${e.dni}</p>
+                <p><strong>Email:</strong> ${e.email || 'No registrado'}</p>
+                <p><strong>Grado:</strong> ${e.grado}</p>
+                <div style="margin:18px 0; display:flex;justify-content:center;">
+                    <div id="qrCarnet"></div>
+                </div>
+            </div>
+            <div style="position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:0.85rem;color:#555;">
+                Institución Educativa • 2026
+            </div>
+        </div>`;
+    
+    document.getElementById("carnetContent").innerHTML = carnetHTML;
+    document.getElementById("modalCarnet").style.display = "flex";
+
+    setTimeout(() => {
+        new QRCode(document.getElementById("qrCarnet"), {
+            text: JSON.stringify(e),
+            width: 125,
+            height: 125,
+            colorDark: "#003087"
+        });
+    }, 150);
+}
+
+function cerrarModal() {
+    document.getElementById("modalCarnet").style.display = "none";
+}
+
+// ====================== IMPRESIÓN Y PDF ======================
+function imprimirCarnet() {
+    const contenido = document.getElementById("carnetPrint").outerHTML;
+    const original = document.body.innerHTML;
+    document.body.innerHTML = contenido;
+    window.print();
+    document.body.innerHTML = original;
+    location.reload();
+}
+
+function descargarPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [105, 148] });
+    
+    html2canvas(document.getElementById("carnetPrint"), { scale: 3 }).then(canvas => {
+        doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 105, 148);
+        doc.save(`Carnet_${estudiantes[currentIndex].nombres.split(" ")[0]}.pdf`);
+    });
+}
+
+// ====================== EXCEL ======================
+function exportarExcel() {
+    const data = estudiantes.map(e => ({
+        Nombres: e.nombres,
+        DNI: e.dni,
+        Email: e.email,
+        Grado: e.grado
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Estudiantes");
+    XLSX.writeFile(wb, `Estudiantes_${new Date().toISOString().slice(0,10)}.xlsx`);
+    showToast("Excel exportado");
+}
+
+document.getElementById("importExcel").addEventListener("change", e => {
+    // (mismo código de importación anterior)
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        const data = new Uint8Array(ev.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        json.forEach(row => {
+            if (row.DNI && row.Nombres) {
+                estudiantes.push({
+                    nombres: row.Nombres,
+                    dni: row.DNI.toString(),
+                    email: row.Email || "",
+                    grado: row.Grado || "Sin asignar",
+                    foto: "https://via.placeholder.com/130x155?text=Sin+Foto"
+                });
+            }
+        });
+        localStorage.setItem("estudiantes", JSON.stringify(estudiantes));
+        actualizarTabla();
+        actualizarDashboard();
+        showToast("Importación completada");
+    };
+    reader.readAsArrayBuffer(file);
+});
+
+// ====================== BÚSQUEDA ======================
+document.getElementById("searchInput").addEventListener("input", function() {
+    const term = this.value.toLowerCase();
+    const filtered = estudiantes.filter(e => 
+        e.nombres.toLowerCase().includes(term) || e.dni.includes(term)
+    );
+    actualizarTabla(filtered);
+});
+
+function limpiarFormulario() {
+    document.getElementById("nombres").value = "";
+    document.getElementById("dni").value = "";
+    document.getElementById("email").value = "";
+    document.getElementById("grado").value = "";
+    document.getElementById("fotoPreview").style.display = "none";
+    currentFotoBase64 = null;
+}
+
+// ====================== INICIO ======================
+actualizarTabla();
+actualizarDashboard();
+</script>
+</body>
+</html>
